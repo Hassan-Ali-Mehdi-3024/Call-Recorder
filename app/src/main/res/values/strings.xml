@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Call Recorder</string>
+    <string name="accessibility_service_label">Call Recorder Audio Capture</string>
+    <string name="accessibility_service_description">Enables advanced call recording by capturing system audio. This service monitors call apps (Phone, WhatsApp, etc.) to provide high-quality recording of both sides of calls.</string>
+</resources>
