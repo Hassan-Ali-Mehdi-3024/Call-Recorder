@@ -23,11 +23,21 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
     
-    - name: Grant execute permission for gradlew
+    - name: Setup Gradle
+      uses: gradle/gradle-build-action@v2
+    
+    - name: Make gradlew executable
       run: chmod +x gradlew
+      continue-on-error: true
     
     - name: Build Debug APK
-      run: ./gradlew assembleDebug
+      run: |
+        if [ -f "gradlew" ]; then
+          ./gradlew assembleDebug
+        else
+          gradle assembleDebug
+        fi
+      shell: bash
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
@@ -36,7 +46,13 @@ jobs:
         path: app/build/outputs/apk/debug/app-debug.apk
     
     - name: Build Release APK (unsigned)
-      run: ./gradlew assembleRelease
+      run: |
+        if [ -f "gradlew" ]; then
+          ./gradlew assembleRelease
+        else
+          gradle assembleRelease
+        fi
+      shell: bash
       continue-on-error: true
     
     - name: Upload Release APK
