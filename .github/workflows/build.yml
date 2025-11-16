@@ -30,13 +30,24 @@ jobs:
         curl -L https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
         # Make gradlew executable
         chmod +x gradlew
+        # Setup Android debug keystore
+        mkdir -p ~/.android
+        if [ ! -f ~/.android/debug.keystore ]; then
+          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+        fi
     
     - name: Validate Gradle wrapper
       uses: gradle/wrapper-validation-action@v1
       continue-on-error: true
     
     - name: Build Debug APK
-      run: ./gradlew assembleDebug --no-daemon --stacktrace
+      run: ./gradlew assembleDebug --no-daemon --stacktrace --warning-mode all
+    
+    - name: List built APKs
+      run: |
+        echo "Debug APK location:"
+        find app/build/outputs/apk/debug -name "*.apk" -type f
+        ls -lh app/build/outputs/apk/debug/
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
@@ -45,12 +56,19 @@ jobs:
         path: app/build/outputs/apk/debug/app-debug.apk
     
     - name: Build Release APK (unsigned)
-      run: ./gradlew assembleRelease --no-daemon --stacktrace
-      continue-on-error: true
+      run: ./gradlew assembleRelease --no-daemon --stacktrace --warning-mode all
+      continue-on-error: false
+    
+    - name: List release APKs
+      run: |
+        echo "Release APK location:"
+        find app/build/outputs/apk/release -name "*.apk" -type f
+        ls -lh app/build/outputs/apk/release/
+      if: success()
     
     - name: Upload Release APK
       uses: actions/upload-artifact@v4
       if: success()
       with:
         name: call-recorder-release
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
+        path: app/build/outputs/apk/release/*.apk
