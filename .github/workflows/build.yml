@@ -23,21 +23,20 @@ jobs:
         java-version: '17'
         distribution: 'temurin'
     
-    - name: Setup Gradle
-      uses: gradle/gradle-build-action@v2
+    - name: Download Gradle Wrapper JAR
+      run: |
+        mkdir -p gradle/wrapper
+        curl -L https://raw.githubusercontent.com/gradle/gradle/v8.2.0/gradle/wrapper/gradle-wrapper.jar -o gradle/wrapper/gradle-wrapper.jar
     
     - name: Make gradlew executable
       run: chmod +x gradlew
+    
+    - name: Validate Gradle wrapper
+      uses: gradle/wrapper-validation-action@v1
       continue-on-error: true
     
     - name: Build Debug APK
-      run: |
-        if [ -f "gradlew" ]; then
-          ./gradlew assembleDebug
-        else
-          gradle assembleDebug
-        fi
-      shell: bash
+      run: ./gradlew assembleDebug --no-daemon --stacktrace
     
     - name: Upload APK
       uses: actions/upload-artifact@v4
@@ -46,13 +45,7 @@ jobs:
         path: app/build/outputs/apk/debug/app-debug.apk
     
     - name: Build Release APK (unsigned)
-      run: |
-        if [ -f "gradlew" ]; then
-          ./gradlew assembleRelease
-        else
-          gradle assembleRelease
-        fi
-      shell: bash
+      run: ./gradlew assembleRelease --no-daemon --stacktrace
       continue-on-error: true
     
     - name: Upload Release APK
