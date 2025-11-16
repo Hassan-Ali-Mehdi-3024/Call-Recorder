@@ -44,27 +44,22 @@ public class PhoneStateReceiver extends BroadcastReceiver {
             return;
         }
         
-        switch (state) {
-            case TelephonyManager.EXTRA_STATE_RINGING:
-                Log.d(TAG, "Phone is ringing");
-                // Call incoming, prepare to record
-                break;
-                
-            case TelephonyManager.EXTRA_STATE_OFFHOOK:
-                Log.d(TAG, "Call answered/active");
-                // Call is active, start recording
-                if (!isRecording) {
-                    startRecording(context);
-                }
-                break;
-                
-            case TelephonyManager.EXTRA_STATE_IDLE:
-                Log.d(TAG, "Call ended");
-                // Call ended, stop recording
-                if (isRecording) {
-                    stopRecording(context);
-                }
-                break;
+        // Use String literals instead of constants for switch-case
+        if (state.equals(TelephonyManager.EXTRA_STATE_RINGING)) {
+            Log.d(TAG, "Phone is ringing");
+            // Call incoming, prepare to record
+        } else if (state.equals(TelephonyManager.EXTRA_STATE_OFFHOOK)) {
+            Log.d(TAG, "Call answered/active");
+            // Call is active, start recording
+            if (!isRecording) {
+                startRecording(context);
+            }
+        } else if (state.equals(TelephonyManager.EXTRA_STATE_IDLE)) {
+            Log.d(TAG, "Call ended");
+            // Call ended, stop recording
+            if (isRecording) {
+                stopRecording(context);
+            }
         }
     }
     
