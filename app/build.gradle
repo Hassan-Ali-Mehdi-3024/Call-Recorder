@@ -3,12 +3,13 @@ plugins {
 }
 
 android {
-    compileSdkVersion 33
+    namespace 'com.callrecorder'
+    compileSdk 33
     
     defaultConfig {
         applicationId "com.callrecorder"
-        minSdkVersion 24
-        targetSdkVersion 33
+        minSdk 24
+        targetSdk 33
         versionCode 1
         versionName "1.0"
         
