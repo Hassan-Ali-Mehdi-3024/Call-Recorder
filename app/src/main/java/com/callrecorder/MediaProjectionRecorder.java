@@ -227,52 +227,6 @@ public class MediaProjectionRecorder {
         return isRecording;
     }
 
-    private void writeWavHeader(FileOutputStream out, long totalAudioLen) throws IOException {
-        long totalDataLen = totalAudioLen + 36;
-        long byteRate = SAMPLE_RATE * CHANNEL_COUNT * BITS_PER_SAMPLE / 8;
-        byte[] header = new byte[44];
-
-        header[0] = 'R'; header[1] = 'I'; header[2] = 'F'; header[3] = 'F';
-        writeInt(header, 4, (int) totalDataLen);
-        header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
-        header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
-        writeInt(header, 16, 16);
-        writeShort(header, 20, (short) 1);
-        writeShort(header, 22, (short) CHANNEL_COUNT);
-        writeInt(header, 24, SAMPLE_RATE);
-        writeInt(header, 28, (int) byteRate);
-        writeShort(header, 32, (short) (CHANNEL_COUNT * BITS_PER_SAMPLE / 8));
-        writeShort(header, 34, (short) BITS_PER_SAMPLE);
-        header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
-        writeInt(header, 40, (int) totalAudioLen);
-
-        out.write(header, 0, 44);
-    }
-
-    private void finalizeWavHeader() {
-        if (outputFile == null || !outputFile.exists()) {
-            return;
-        }
-        try (RandomAccessFile raf = new RandomAccessFile(outputFile, "rw")) {
-            long totalAudioLen = totalBytesWritten;
-            long totalDataLen = totalAudioLen + 36;
-            long byteRate = SAMPLE_RATE * CHANNEL_COUNT * BITS_PER_SAMPLE / 8;
-
-            raf.seek(4);
-            raf.writeInt(Integer.reverseBytes((int) totalDataLen));
-            raf.seek(40);
-            raf.writeInt(Integer.reverseBytes((int) totalAudioLen));
-            raf.seek(28);
-            raf.writeInt(Integer.reverseBytes((int) byteRate));
-            raf.seek(32);
-            raf.writeShort(Short.reverseBytes((short) (CHANNEL_COUNT * BITS_PER_SAMPLE / 8)));
-            raf.seek(34);
-            raf.writeShort(Short.reverseBytes((short) BITS_PER_SAMPLE));
-        } catch (IOException e) {
-            Log.e(TAG, "Failed to finalize WAV header: " + e.getMessage());
-        }
-    }
-
     private void closeOutputStream() {
         if (wavWriter != null) {
             try {
@@ -283,4 +237,4 @@ public class MediaProjectionRecorder {
             wavWriter = null;
         }
     }
-}
+        writeShort(header, 20, (short) 1);
