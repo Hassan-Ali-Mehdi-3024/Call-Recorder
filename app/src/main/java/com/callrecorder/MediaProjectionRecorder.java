@@ -237,4 +237,4 @@ public class MediaProjectionRecorder {
             wavWriter = null;
         }
     }
-        writeShort(header, 20, (short) 1);
+}
