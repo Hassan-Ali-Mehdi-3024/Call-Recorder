@@ -12,7 +12,8 @@ Your **Redmi 10C** is one of the BEST devices for call recording! Xiaomi's MIUI 
 2. Tap "Apply Redmi Optimizations" in the popup
 3. Grant all permissions
 4. Enable "Auto-record calls" toggle
-5. DONE! ✅
+5. When Android asks for "All files access", tap **Allow** so recordings can be written to Internal storage/Recordings
+6. DONE! ✅
 ```
 
 **Result**: ⭐⭐⭐⭐⭐ Perfect quality - Both sides recorded clearly!
@@ -65,6 +66,7 @@ Your **Redmi 10C** is one of the BEST devices for call recording! Xiaomi's MIUI 
 ✅ 48 kHz sample rate (optimized for Helio G85)
 ✅ 128 kbps encoding bitrate (studio clarity)
 ✅ Automatic WAV conversion for MediaProjection / root modes
+✅ Dedicated Redmi recorder (AudioRecord + WAV) if MIUI blocks system APIs
 ```
 
 ### MIUI Settings:
@@ -164,7 +166,9 @@ Example: Call_1234567890_20251116_143022.m4a
 ### Issue: "Recording only captures my voice"
 **Solution**: This shouldn't happen on Redmi 10C! If it does:
 1. Open app → "Apply Redmi Optimizations"
-2. Or use MIUI's built-in call recording instead
+2. Grant "All files access" (Settings → Privacy → Special permissions → All files access → Call Recorder → Allow)
+3. Reopen the app so it switches to the dedicated Redmi recorder
+4. Make a short test call and verify the `.wav` file in Internal storage/Recordings/Call Recorder
 
 ### Issue: "App stops after screen lock"
 **Solution**: 

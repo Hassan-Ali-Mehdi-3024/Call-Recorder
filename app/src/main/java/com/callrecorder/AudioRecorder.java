@@ -36,6 +36,7 @@ public class AudioRecorder {
     private MediaProjectionRecorder mediaProjectionRecorder;
     private RootAudioRecorder rootAudioRecorder;
     private MediaProjection mediaProjection;
+    private RedmiCallRecorder redmiCallRecorder;
     
     // Recording strategy priority
     private enum RecordingMethod {
@@ -64,6 +65,7 @@ public class AudioRecorder {
             RedmiOptimizations redmiOpt = new RedmiOptimizations(context);
             redmiOpt.applyRedmiOptimizations();
             Log.i(TAG, "Redmi 10C optimizations applied - MIUI native recording enabled!");
+            redmiCallRecorder = new RedmiCallRecorder(context);
         } else {
             // Apply manufacturer-specific workarounds for other devices
             ManufacturerWorkarounds workarounds = new ManufacturerWorkarounds(context);
@@ -107,6 +109,18 @@ public class AudioRecorder {
             File baseFile = new File(recordingsDir, filename);
             outputFile = baseFile;
             Log.i(TAG, "Recording will be saved to: " + baseFile.getAbsolutePath());
+            
+            if (redmiCallRecorder != null) {
+                File redmiFile = RecordingStorageManager.withExtension(baseFile, ".wav");
+                if (redmiFile != null && redmiCallRecorder.startRecording(redmiFile)) {
+                    outputFile = redmiFile;
+                    isRecording = true;
+                    Log.i(TAG, "Recording started using Redmi-specific pipeline");
+                    return;
+                } else {
+                    Log.w(TAG, "Redmi pipeline failed, falling back to generic methods");
+                }
+            }
             
             // Use best available recording method
             RecordingMethod method = selectBestRecordingMethod();
@@ -338,6 +352,10 @@ public class AudioRecorder {
             
             if (mediaProjectionRecorder != null && mediaProjectionRecorder.isRecording()) {
                 mediaProjectionRecorder.stopRecording();
+            }
+
+            if (redmiCallRecorder != null && redmiCallRecorder.isRecording()) {
+                redmiCallRecorder.stopRecording();
             }
             
             if (useMediaRecorder && mediaRecorder != null) {
