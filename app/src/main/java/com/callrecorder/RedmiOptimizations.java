@@ -245,16 +245,16 @@ public class RedmiOptimizations {
      * Get optimal encoding for Redmi 10C
      */
     public static int getOptimalEncoder() {
-        // AMR-WB provides best quality/size ratio on MIUI
-        return android.media.MediaRecorder.AudioEncoder.AMR_WB;
+        // AAC offers higher fidelity and smaller size
+        return android.media.MediaRecorder.AudioEncoder.AAC;
     }
     
     /**
      * Get optimal output format for Redmi 10C
      */
     public static int getOptimalOutputFormat() {
-        // 3GPP works perfectly with MIUI
-        return android.media.MediaRecorder.OutputFormat.THREE_GPP;
+        // MPEG_4 + AAC keeps files compatible everywhere (.m4a)
+        return android.media.MediaRecorder.OutputFormat.MPEG_4;
     }
     
     /**

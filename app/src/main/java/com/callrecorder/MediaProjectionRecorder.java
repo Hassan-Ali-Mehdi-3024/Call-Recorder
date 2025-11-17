@@ -14,6 +14,7 @@ import androidx.annotation.RequiresApi;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 
 /**
  * Advanced audio recorder using MediaProjection API (Android 10+)
@@ -26,6 +27,8 @@ public class MediaProjectionRecorder {
     private static final int SAMPLE_RATE = 44100;
     private static final int CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_STEREO;
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
+    private static final int CHANNEL_COUNT = 2;
+    private static final int BITS_PER_SAMPLE = 16;
     
     private AudioRecord audioRecord;
     private boolean isRecording = false;
@@ -33,6 +36,8 @@ public class MediaProjectionRecorder {
     private File outputFile;
     private MediaProjection mediaProjection;
     private Context context;
+    private FileOutputStream outputStream;
+    private long totalBytesWritten = 0;
     
     // Dual recording: internal audio + microphone
     private AudioRecord microphoneRecord;
@@ -42,19 +47,18 @@ public class MediaProjectionRecorder {
         this.mediaProjection = mediaProjection;
     }
     
-    public void startRecording(String filename) {
+    public void startRecording(File destinationFile) {
         if (isRecording) {
             Log.w(TAG, "Already recording");
             return;
         }
         
         try {
-            File recordingsDir = new File(context.getExternalFilesDir(null), "CallRecordings");
-            if (!recordingsDir.exists()) {
-                recordingsDir.mkdirs();
+            outputFile = destinationFile;
+            if (outputFile == null) {
+                Log.e(TAG, "Destination file is null");
+                return;
             }
-            
-            outputFile = new File(recordingsDir, filename);
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && mediaProjection != null) {
                 startPlaybackCaptureRecording();
@@ -101,6 +105,15 @@ public class MediaProjectionRecorder {
             return;
         }
         
+        try {
+            outputStream = new FileOutputStream(outputFile);
+            writeWavHeader(outputStream, 0);
+        } catch (IOException e) {
+            Log.e(TAG, "Unable to create output stream: " + e.getMessage());
+            return;
+        }
+        totalBytesWritten = 0;
+        
         audioRecord.startRecording();
         
         // Also record from microphone to mix both sources
@@ -132,36 +145,23 @@ public class MediaProjectionRecorder {
     private void writeAudioDataToFile(int bufferSize) {
         byte[] audioData = new byte[bufferSize];
         byte[] micData = new byte[bufferSize / 2]; // Mono for mic
-        FileOutputStream outputStream = null;
         
-        try {
-            outputStream = new FileOutputStream(outputFile);
-            
-            while (isRecording) {
-                // Read from internal audio (playback capture)
+        while (isRecording && outputStream != null) {
+            try {
                 int bytesRead = audioRecord.read(audioData, 0, bufferSize);
-                
-                // Read from microphone
                 int micBytesRead = 0;
                 if (microphoneRecord != null) {
                     micBytesRead = microphoneRecord.read(micData, 0, micData.length);
                 }
                 
                 if (bytesRead > 0) {
-                    // Mix both audio sources
                     byte[] mixedAudio = mixAudioSources(audioData, bytesRead, micData, micBytesRead);
                     outputStream.write(mixedAudio);
-                }
-            }
-        } catch (IOException e) {
-            Log.e(TAG, "Error writing audio data: " + e.getMessage());
-        } finally {
-            try {
-                if (outputStream != null) {
-                    outputStream.close();
+                    totalBytesWritten += mixedAudio.length;
                 }
             } catch (IOException e) {
-                Log.e(TAG, "Error closing output stream: " + e.getMessage());
+                Log.e(TAG, "Error writing audio data: " + e.getMessage());
+                break;
             }
         }
     }
@@ -220,6 +220,9 @@ public class MediaProjectionRecorder {
             if (recordingThread != null) {
                 recordingThread.join();
             }
+            closeOutputStream();
+            finalizeWavHeader();
+            RecordingStorageManager.scanFile(context, outputFile);
             
             Log.i(TAG, "Recording stopped and saved: " + outputFile.getAbsolutePath());
         } catch (Exception e) {
@@ -229,5 +232,75 @@ public class MediaProjectionRecorder {
     
     public boolean isRecording() {
         return isRecording;
+    }
+
+    private void writeWavHeader(FileOutputStream out, long totalAudioLen) throws IOException {
+        long totalDataLen = totalAudioLen + 36;
+        long byteRate = SAMPLE_RATE * CHANNEL_COUNT * BITS_PER_SAMPLE / 8;
+        byte[] header = new byte[44];
+
+        header[0] = 'R'; header[1] = 'I'; header[2] = 'F'; header[3] = 'F';
+        writeInt(header, 4, (int) totalDataLen);
+        header[8] = 'W'; header[9] = 'A'; header[10] = 'V'; header[11] = 'E';
+        header[12] = 'f'; header[13] = 'm'; header[14] = 't'; header[15] = ' ';
+        writeInt(header, 16, 16);
+        writeShort(header, 20, (short) 1);
+        writeShort(header, 22, (short) CHANNEL_COUNT);
+        writeInt(header, 24, SAMPLE_RATE);
+        writeInt(header, 28, (int) byteRate);
+        writeShort(header, 32, (short) (CHANNEL_COUNT * BITS_PER_SAMPLE / 8));
+        writeShort(header, 34, (short) BITS_PER_SAMPLE);
+        header[36] = 'd'; header[37] = 'a'; header[38] = 't'; header[39] = 'a';
+        writeInt(header, 40, (int) totalAudioLen);
+
+        out.write(header, 0, 44);
+    }
+
+    private void finalizeWavHeader() {
+        if (outputFile == null || !outputFile.exists()) {
+            return;
+        }
+        try (RandomAccessFile raf = new RandomAccessFile(outputFile, "rw")) {
+            long totalAudioLen = totalBytesWritten;
+            long totalDataLen = totalAudioLen + 36;
+            long byteRate = SAMPLE_RATE * CHANNEL_COUNT * BITS_PER_SAMPLE / 8;
+
+            raf.seek(4);
+            raf.writeInt(Integer.reverseBytes((int) totalDataLen));
+            raf.seek(40);
+            raf.writeInt(Integer.reverseBytes((int) totalAudioLen));
+            raf.seek(28);
+            raf.writeInt(Integer.reverseBytes((int) byteRate));
+            raf.seek(32);
+            raf.writeShort(Short.reverseBytes((short) (CHANNEL_COUNT * BITS_PER_SAMPLE / 8)));
+            raf.seek(34);
+            raf.writeShort(Short.reverseBytes((short) BITS_PER_SAMPLE));
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to finalize WAV header: " + e.getMessage());
+        }
+    }
+
+    private void closeOutputStream() {
+        if (outputStream != null) {
+            try {
+                outputStream.flush();
+                outputStream.close();
+            } catch (IOException e) {
+                Log.e(TAG, "Error closing output stream: " + e.getMessage());
+            }
+            outputStream = null;
+        }
+    }
+
+    private void writeInt(byte[] data, int offset, int value) {
+        data[offset] = (byte) (value & 0xff);
+        data[offset + 1] = (byte) ((value >> 8) & 0xff);
+        data[offset + 2] = (byte) ((value >> 16) & 0xff);
+        data[offset + 3] = (byte) ((value >> 24) & 0xff);
+    }
+
+    private void writeShort(byte[] data, int offset, short value) {
+        data[offset] = (byte) (value & 0xff);
+        data[offset + 1] = (byte) ((value >> 8) & 0xff);
     }
 }

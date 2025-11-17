@@ -281,7 +281,7 @@ public class MainActivity extends AppCompatActivity {
     }
     
     private void loadRecordings() {
-        File recordingsDir = new File(getExternalFilesDir(null), "CallRecordings");
+        File recordingsDir = RecordingStorageManager.getRecordingDirectory(this);
         if (recordingsDir.exists()) {
             File[] files = recordingsDir.listFiles();
             if (files != null) {

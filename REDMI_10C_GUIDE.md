@@ -61,10 +61,10 @@ Your **Redmi 10C** is one of the BEST devices for call recording! Xiaomi's MIUI 
 ### Audio Settings:
 ```
 ✅ VOICE_COMMUNICATION source (best for MIUI)
-✅ AMR-WB codec (wideband audio)
-✅ 48kHz sample rate (optimized for Helio G85)
-✅ 23.85 kbps bitrate (high quality)
-✅ 3GPP output format (MIUI native)
+✅ AAC codec inside an .m4a container (universal support)
+✅ 48 kHz sample rate (optimized for Helio G85)
+✅ 128 kbps encoding bitrate (studio clarity)
+✅ Automatic WAV conversion for MediaProjection / root modes
 ```
 
 ### MIUI Settings:
@@ -144,16 +144,17 @@ Your **Redmi 10C** is one of the BEST devices for call recording! Xiaomi's MIUI 
 
 ## 📂 FILE LOCATION
 
-Recordings are saved to:
+Recordings are saved to the shared internal folder:
 ```
-/storage/emulated/0/Android/data/com.callrecorder/files/CallRecordings/
+/storage/emulated/0/Recordings/Call Recorder/
 ```
 
 **Filename format**:
 ```
-Call_<PhoneNumber>_<Date>_<Time>.3gp
+Call_<PhoneNumber>_<Date>_<Time>.m4a  (standard calls)
+Call_<PhoneNumber>_<Date>_<Time>.wav  (MediaProjection / root capture)
 
-Example: Call_1234567890_20251116_143022.3gp
+Example: Call_1234567890_20251116_143022.m4a
 ```
 
 ---

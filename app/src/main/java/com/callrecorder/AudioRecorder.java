@@ -6,7 +6,6 @@ import android.media.AudioRecord;
 import android.media.MediaRecorder;
 import android.media.projection.MediaProjection;
 import android.os.Build;
-import android.os.Environment;
 import android.util.Log;
 
 import java.io.File;
@@ -79,13 +78,17 @@ public class AudioRecorder {
     }
     
     public static String generateFileName(String phoneNumber) {
+        return generateFileName(phoneNumber, ".m4a");
+    }
+
+    public static String generateFileName(String phoneNumber, String extension) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault());
         String timestamp = dateFormat.format(new Date());
         String sanitizedNumber = phoneNumber.replaceAll("[^0-9]", "");
         if (sanitizedNumber.isEmpty()) {
             sanitizedNumber = "unknown";
         }
-        return "Call_" + sanitizedNumber + "_" + timestamp + ".3gp";
+        return "Call_" + sanitizedNumber + "_" + timestamp + extension;
     }
     
     public void startRecording(String filename) {
@@ -95,13 +98,15 @@ public class AudioRecorder {
         }
         
         try {
-            // Create recordings directory
-            File recordingsDir = new File(context.getExternalFilesDir(null), "CallRecordings");
-            if (!recordingsDir.exists()) {
-                recordingsDir.mkdirs();
+            File recordingsDir = RecordingStorageManager.getRecordingDirectory(context);
+            if (recordingsDir == null) {
+                Log.e(TAG, "Unable to resolve recordings directory");
+                return;
             }
             
-            outputFile = new File(recordingsDir, filename);
+            File baseFile = new File(recordingsDir, filename);
+            outputFile = baseFile;
+            Log.i(TAG, "Recording will be saved to: " + baseFile.getAbsolutePath());
             
             // Use best available recording method
             RecordingMethod method = selectBestRecordingMethod();
@@ -110,18 +115,35 @@ public class AudioRecorder {
             switch (method) {
                 case ROOT:
                     if (rootAudioRecorder != null) {
-                        rootAudioRecorder.startRecording(filename);
+                        File rootFile = RecordingStorageManager.withExtension(baseFile, ".wav");
+                        if (rootFile == null) {
+                            Log.e(TAG, "Failed to resolve root recording file");
+                            return;
+                        }
+                        rootAudioRecorder.startRecording(rootFile);
+                        outputFile = rootFile;
                         isRecording = true;
                     }
                     break;
                     
                 case MEDIA_PROJECTION:
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && mediaProjectionRecorder != null) {
-                        mediaProjectionRecorder.startRecording(filename);
+                        File mpFile = RecordingStorageManager.withExtension(baseFile, ".wav");
+                        if (mpFile == null) {
+                            Log.e(TAG, "Failed to resolve MediaProjection recording file");
+                            return;
+                        }
+                        mediaProjectionRecorder.startRecording(mpFile);
+                        outputFile = mpFile;
                         isRecording = true;
                     } else {
                         // Fallback to MediaRecorder
-                        startMediaRecorderRecording();
+                        outputFile = RecordingStorageManager.withExtension(baseFile, ".m4a");
+                        if (outputFile == null) {
+                            Log.e(TAG, "Failed to resolve fallback recording file");
+                            return;
+                        }
+                        startMediaRecorderRecording(outputFile);
                         isRecording = true;
                     }
                     break;
@@ -131,8 +153,18 @@ public class AudioRecorder {
                 case MICROPHONE:
                 default:
                     if (useMediaRecorder) {
-                        startMediaRecorderRecording();
+                        outputFile = RecordingStorageManager.withExtension(baseFile, ".m4a");
+                        if (outputFile == null) {
+                            Log.e(TAG, "Failed to create media recorder file");
+                            return;
+                        }
+                        startMediaRecorderRecording(outputFile);
                     } else {
+                        outputFile = RecordingStorageManager.withExtension(baseFile, ".wav");
+                        if (outputFile == null) {
+                            Log.e(TAG, "Failed to create PCM recording file");
+                            return;
+                        }
                         startAudioRecordRecording();
                     }
                     isRecording = true;
@@ -166,7 +198,10 @@ public class AudioRecorder {
         return RecordingMethod.VOICE_COMMUNICATION;
     }
     
-    private void startMediaRecorderRecording() throws IOException {
+    private void startMediaRecorderRecording(File targetFile) throws IOException {
+        if (targetFile.getParentFile() != null && !targetFile.getParentFile().exists()) {
+            targetFile.getParentFile().mkdirs();
+        }
         mediaRecorder = new MediaRecorder();
         
         // REDMI 10C OPTIMIZED CONFIGURATION
@@ -176,8 +211,8 @@ public class AudioRecorder {
                 mediaRecorder.setOutputFormat(RedmiOptimizations.getOptimalOutputFormat());
                 mediaRecorder.setAudioEncoder(RedmiOptimizations.getOptimalEncoder());
                 mediaRecorder.setAudioSamplingRate(RedmiOptimizations.getOptimalSampleRate());
-                mediaRecorder.setAudioEncodingBitRate(23850); // High quality
-                mediaRecorder.setOutputFile(outputFile.getAbsolutePath());
+                mediaRecorder.setAudioEncodingBitRate(128000); // High quality stereo-ish
+                mediaRecorder.setOutputFile(targetFile.getAbsolutePath());
                 mediaRecorder.prepare();
                 mediaRecorder.start();
                 Log.i(TAG, "Recording started with Redmi 10C optimized settings");
@@ -205,11 +240,11 @@ public class AudioRecorder {
                 }
                 mediaRecorder = new MediaRecorder();
                 mediaRecorder.setAudioSource(source);
-                mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.THREE_GPP);
-                mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_WB); // Wide band for better quality
-                mediaRecorder.setAudioSamplingRate(16000);
-                mediaRecorder.setAudioEncodingBitRate(23850);
-                mediaRecorder.setOutputFile(outputFile.getAbsolutePath());
+                mediaRecorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
+                mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
+                mediaRecorder.setAudioSamplingRate(44100);
+                mediaRecorder.setAudioEncodingBitRate(128000);
+                mediaRecorder.setOutputFile(targetFile.getAbsolutePath());
                 mediaRecorder.prepare();
                 mediaRecorder.start();
                 initialized = true;
@@ -226,6 +261,9 @@ public class AudioRecorder {
     }
     
     private void startAudioRecordRecording() {
+        if (outputFile != null && outputFile.getParentFile() != null && !outputFile.getParentFile().exists()) {
+            outputFile.getParentFile().mkdirs();
+        }
         int bufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT);
         
         try {
@@ -317,6 +355,7 @@ public class AudioRecorder {
             }
             
             Log.i(TAG, "Recording stopped and saved: " + outputFile.getAbsolutePath());
+            RecordingStorageManager.scanFile(context, outputFile);
         } catch (Exception e) {
             Log.e(TAG, "Error stopping recording: " + e.getMessage(), e);
         }

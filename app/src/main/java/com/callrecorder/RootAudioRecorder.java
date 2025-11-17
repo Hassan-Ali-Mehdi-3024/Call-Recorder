@@ -79,7 +79,7 @@ public class RootAudioRecorder {
      * Start recording using root privileges
      * This records directly from the audio hardware/kernel
      */
-    public void startRecording(String filename) {
+    public void startRecording(File destinationFile) {
         if (isRecording) {
             Log.w(TAG, "Already recording");
             return;
@@ -91,12 +91,14 @@ public class RootAudioRecorder {
         }
         
         try {
-            File recordingsDir = new File(context.getExternalFilesDir(null), "CallRecordings");
-            if (!recordingsDir.exists()) {
-                recordingsDir.mkdirs();
+            if (destinationFile == null) {
+                Log.e(TAG, "Destination file is null");
+                return;
             }
-            
-            outputFilePath = new File(recordingsDir, filename).getAbsolutePath();
+            if (destinationFile.getParentFile() != null && !destinationFile.getParentFile().exists()) {
+                destinationFile.getParentFile().mkdirs();
+            }
+            outputFilePath = destinationFile.getAbsolutePath();
             
             // Start root shell
             suProcess = Runtime.getRuntime().exec("su");
