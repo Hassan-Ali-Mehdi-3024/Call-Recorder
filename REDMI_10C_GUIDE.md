@@ -32,6 +32,22 @@ Your **Redmi 10C** is one of the BEST devices for call recording! Xiaomi's MIUI 
 
 ---
 
+## 🛡️ MIUI 14 (Android 13) MANDATORY TOGGLES
+
+MIUI 14 tightens privacy around call audio. Run through this checklist once (takes ~3 minutes):
+
+1. **Grant special storage access**: `Settings → Privacy protection → Special permissions → All files access → Call Recorder → Allow`.
+2. **Allow MIUI call recording privilege**: `Settings → Privacy protection → Special permissions → Call recording → Call Recorder → Allow recording permissions` (this lets MIUI share downlink audio with our app).
+3. **Enable the stock recorder once**: `Phone app → ⋮ → Settings → Call recording → Record calls automatically → All numbers`. Xiaomi exposes the dual-channel route only after the native toggle has been flipped at least once.
+4. **Disable battery throttling**: `Settings → Battery → App battery saver → Call Recorder → No restrictions`, then enable `Autostart` and `Display pop-up windows`.
+5. **Keep microphone + phone permissions on**: `Settings → Apps → Call Recorder → App permissions` → allow Phone, Microphone, Nearby devices, Notifications.
+6. **Approve MediaProjection prompt for VoIP apps**: the first time you record WhatsApp/Telegram, accept the "Start now" dialog; without it the captured PCM will be all zeros.
+7. **Optional: force speaker for stubborn carriers**: during a PSTN call, tap the loudspeaker button once so MIUI exposes the downlink channel; our MIC fallback will automatically mix that feed.
+
+After toggling everything, reboot once so MIUI re-applies the new call-recording policy, then place a short test call and verify the WAV/M4A file.
+
+---
+
 ## 🔧 REDMI 10C SPECIFICATIONS
 
 **Processor**: MediaTek Helio G85  
@@ -169,6 +185,14 @@ Example: Call_1234567890_20251116_143022.m4a
 2. Grant "All files access" (Settings → Privacy → Special permissions → All files access → Call Recorder → Allow)
 3. Reopen the app so it switches to the dedicated Redmi recorder
 4. Make a short test call and verify the `.wav` file in Internal storage/Recordings/Call Recorder
+5. If it is still silent, confirm the MIUI 14 checklist above and watch logcat for `RedmiCallRecorder` messages. The app now logs `PCM avg=XX` every few seconds—values under 10 mean MIUI is still muting the downlink.
+
+### Issue: "MediaProjection recordings are silent"
+**Solution**:
+1. Start a WhatsApp/Telegram call.
+2. When Android shows the screen-capture prompt, tap **Start now** (must be done while the call UI is visible).
+3. Keep the app in the foreground for ~3 seconds so MediaProjection stabilizes.
+4. Check logcat for `MediaProjectionRecorder` entries like `PCM avg playback=120 mic=80 mixed=100`. If both numbers stay under 10, the target app isn't exposed via `USAGE_VOICE_COMMUNICATION`—switch to the Redmi recorder path or enable the stock MIUI recorder for PSTN calls.
 
 ### Issue: "App stops after screen lock"
 **Solution**: 

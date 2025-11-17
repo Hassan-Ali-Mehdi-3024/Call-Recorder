@@ -7,6 +7,7 @@ import android.media.AudioPlaybackCaptureConfiguration;
 import android.media.AudioRecord;
 import android.media.projection.MediaProjection;
 import android.os.Build;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.RequiresApi;
@@ -27,6 +28,7 @@ public class MediaProjectionRecorder {
     private static final int AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT;
     private static final int CHANNEL_COUNT = 2;
     private static final int BITS_PER_SAMPLE = 16;
+    private static final long PCM_LOG_INTERVAL_MS = 2000;
     
     private AudioRecord audioRecord;
     private boolean isRecording = false;
@@ -35,6 +37,7 @@ public class MediaProjectionRecorder {
     private MediaProjection mediaProjection;
     private Context context;
     private WavFileWriter wavWriter;
+    private long lastPcmLogTimeMs = 0;
     
     // Dual recording: internal audio + microphone
     private AudioRecord microphoneRecord;
@@ -150,7 +153,11 @@ public class MediaProjectionRecorder {
                 }
                 
                 if (bytesRead > 0) {
+                    long playbackAvg = computeAverageAmplitude(audioData, bytesRead);
+                    long micAvg = micBytesRead > 0 ? computeAverageAmplitude(micData, micBytesRead) : -1;
                     byte[] mixedAudio = mixAudioSources(audioData, bytesRead, micData, micBytesRead);
+                    long mixedAvg = computeAverageAmplitude(mixedAudio, mixedAudio.length);
+                    logPcmAmplitudes(playbackAvg, micAvg, mixedAvg);
                     wavWriter.write(mixedAudio, mixedAudio.length);
                 }
             } catch (IOException e) {
@@ -225,6 +232,31 @@ public class MediaProjectionRecorder {
     
     public boolean isRecording() {
         return isRecording;
+    }
+
+    private long computeAverageAmplitude(byte[] buffer, int length) {
+        if (length <= 0) {
+            return 0;
+        }
+        long sum = 0;
+        for (int i = 0; i + 1 < length; i += 2) {
+            short sample = (short) ((buffer[i + 1] << 8) | (buffer[i] & 0xFF));
+            sum += Math.abs(sample);
+        }
+        int samples = Math.max(1, length / 2);
+        return sum / samples;
+    }
+
+    private void logPcmAmplitudes(long playbackAvg, long micAvg, long mixedAvg) {
+        long now = SystemClock.elapsedRealtime();
+        if (now - lastPcmLogTimeMs < PCM_LOG_INTERVAL_MS) {
+            return;
+        }
+        lastPcmLogTimeMs = now;
+        Log.d(TAG, "PCM avg playback=" + playbackAvg + " mic=" + micAvg + " mixed=" + mixedAvg);
+        if (mixedAvg < 10 && playbackAvg < 10) {
+            Log.w(TAG, "Playback PCM near zero - MediaProjection may lack consent or target app not capturable");
+        }
     }
 
     private void closeOutputStream() {
